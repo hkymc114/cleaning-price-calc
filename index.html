@@ -20,8 +20,8 @@
       flex: 1 1 100%;
     }
     input, select, textarea, button {
-  font-size: 16px !important;
-}
+      font-size: 16px !important;
+    }
 
     table {
       border-collapse: collapse;
@@ -54,15 +54,15 @@
     }
     
     #itemSearch {
-    font-size: 16px;
-    padding: 12px;
-    width: 100%;
-    max-width: 300px;
-    box-sizing: border-box;
-  }
-</style>
+      font-size: 16px;
+      padding: 12px;
+      width: 100%;
+      max-width: 300px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
+  
 <body>
   <h1>白洋舍 料金シミュレータ</h1>
 <div class="form-group">
@@ -274,65 +274,99 @@
       { "name": "ワンピース", "オリジナル料金": 1800, "ローヤル料金": 3600, "素材別料金": 3600, "クリスタル料金": 3600 }
     ];
     
-    const typeSelect = document.getElementById("typeSelect");
-    const tableBody = document.getElementById("tableBody");
-    const totalSpan = document.getElementById("total");
-    const itemSuggestions = document.getElementById("itemSuggestions");
+<script>
+  const typeSelect = document.getElementById("typeSelect");
+  const tableBody = document.getElementById("tableBody");
+  const totalSpan = document.getElementById("total");
+  const itemSuggestions = document.getElementById("itemSuggestions");
 
-    items.forEach(item => {
-      const option = document.createElement("option");
-      option.value = item.name;
-      itemSuggestions.appendChild(option);
-    });
+  // 品目名の候補リスト作成
+  items.forEach(item => {
+    const option = document.createElement("option");
+    option.value = item.name;
+    itemSuggestions.appendChild(option);
+  });
 
-document.getElementById("addSearchBtn").addEventListener("click", () => {
-  const name = document.getElementById("itemSearch").value;
-  const type = typeSelect.value;
-  const item = items.find(i => i.name === name);
+  // 「検索から追加」ボタン
+  document.getElementById("addSearchBtn").addEventListener("click", () => {
+    const name = document.getElementById("itemSearch").value;
+    const type = typeSelect.value;
+    const item = items.find(i => i.name === name);
 
+    if (!item) {
+      alert("該当する品目が見つかりません");
+      return;
+    }
 
-  if (!item) {
-    alert("該当する品目が見つかりません");
-    return;
-  }
+    const basePrice = item[type];
+    if (basePrice == null) {
+      alert("この種別では金額が未設定です。");
+      return;
+    }
 
-  const price = item[type];
-  if (price == null) {
-    alert("この種別では金額が未設定です。");
-    return;
-  }
+    // 加工選択（チェックボックスで複数可）
+    const selectedProcessing = [];
+    let processingTotal = 0;
+    processingData.forEach(proc => {
+      const checked = confirm(`${proc.name} を追加しますか？\n\n${proc.description}`);
+      if (checked) {
+        selectedProcessing.push(proc.name);
 
-  const row = document.createElement("tr");
-  row.innerHTML = `
-    <td>${name}</td>
-    <td>${type.replace("料金", "")}</td>
-    <td>${price}</td>
-    <td><button class="deleteBtn">削除</button></td>
-  `;
-  tableBody.appendChild(row);
-  updateTotal();
-});
-
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      tableBody.innerHTML = "";
-      updateTotal();
-    });
-
-    tableBody.addEventListener("click", (e) => {
-      if (e.target.classList.contains("deleteBtn")) {
-        e.target.closest("tr").remove();
-        updateTotal();
+        // 金額計算ロジック
+        if (proc.description.includes("オリジナル料金の50％")) {
+          const addPrice = Math.min(
+            Math.max(Math.floor(item["オリジナル料金"] * 0.5), 400),
+            2500
+          );
+          processingTotal += addPrice;
+        } else {
+          // 固定額が本文にあれば抽出
+          const fixedMatch = proc.description.match(/(\d{3,4})円/);
+          if (fixedMatch) {
+            processingTotal += parseInt(fixedMatch[1], 10);
+          }
+        }
       }
     });
 
-    function updateTotal() {
-      let total = 0;
-      document.querySelectorAll("#tableBody tr").forEach(row => {
-        total += parseInt(row.children[2].textContent);
-      });
-      totalSpan.textContent = total.toLocaleString();
+    const finalPrice = basePrice + processingTotal;
+
+    // テーブルに行追加
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${name}</td>
+      <td>${type.replace("料金", "")}</td>
+      <td>${finalPrice}</td>
+      <td>${selectedProcessing.join(", ") || "なし"}</td>
+      <td><button class="deleteBtn">削除</button></td>
+    `;
+    tableBody.appendChild(row);
+    updateTotal();
+  });
+
+  // リセットボタン
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    tableBody.innerHTML = "";
+    updateTotal();
+  });
+
+  // 削除ボタン
+  tableBody.addEventListener("click", (e) => {
+    if (e.target.classList.contains("deleteBtn")) {
+      e.target.closest("tr").remove();
+      updateTotal();
     }
-  </script>
+  });
+
+  // 合計計算
+  function updateTotal() {
+    let total = 0;
+    document.querySelectorAll("#tableBody tr").forEach(row => {
+      total += parseInt(row.children[2].textContent);
+    });
+    totalSpan.textContent = total.toLocaleString();
+  }
+</script>
 
 <footer style="text-align: center; font-size: 0.8em; color: #888; margin-top: 40px;">
   © 2025 白洋舍料金計算アプリ Ver.1.2.1<br />
