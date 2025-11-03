@@ -192,12 +192,13 @@
   </aside>
 
   <footer>
-    © 2025 白洋舍料金計算アプリ Ver.2.0.3（案内UI刷新＋表スクロール）<br />
+    © 2025 白洋舍料金計算アプリ Ver.2.1.0<br />
     <details style="margin-top: 6px;">
       <summary>アップデート情報</summary>
       <div style="text-align: left; margin: 0 auto; max-width: 560px;">
         <ul style="padding-left: 1.2em; line-height:1.7;">
-          <li>2025/11/03 - Ver.2.0.3 各種加工案内をプルダウン化／表ボディスクロール対応</li>
+          <li>2025/11/03 - Ver.2.1.1 各種加工案内を公式文言に更新／モバイルUI改善（保存ボタン埋没防止）</li>
+          <li>2025/11/03 - Ver.2.1.0 各種加工案内をプルダウン化／表ボディスクロール対応</li>
           <li>2025/11/03 - Ver.2.0.2 ローカル保存・復元と行別加工編集ドロワーを実装</li>
           <li>2025/07/14 - Ver.1.2.1 フィードバックフォームの実装</li>
           <li>2025/07/13 - Ver.1.1.0 加工品目の修正</li>
@@ -219,7 +220,7 @@
 <script>
   // =====================================================
   // ▼ 加工説明（プルダウン）
-  //   目的：店頭説明・問い合わせ対応時に、加工の根拠（%／固定／条件）を可視化
+  //   目的：説明・問い合わせ対応時に、加工の根拠（%／固定／条件）を可視化
   //   運用：文言変更はここ（processingDataDesc）。計算根拠は下の PROC_MASTER を修正
   // =====================================================
   const processingDataDesc = [
@@ -260,7 +261,7 @@
 
 <script>
   // =====================================
-  // ▼ 品目データ（重複削除済・料金マスタ）
+  // ▼ 品目データ（料金マスタ）
   // =====================================
   const items = [
     { "name": "麻ワイシャツ", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
@@ -506,7 +507,7 @@
 </script>
 
 <script>
-  // ================= 加工マスター＆適用ロジック（PROC_MASTER） =================
+  // ================= 加工マスタ＆適用ロジック（PROC_MASTER） =================
   const PROC_MASTER = [
     { code:'P_MOTH', name:'防虫加工',        calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
     { code:'P_WR',   name:'はっ水加工',      calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
