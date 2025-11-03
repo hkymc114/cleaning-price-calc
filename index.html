@@ -60,18 +60,18 @@
 
     .proc-group{ margin-bottom:14px; }
     .proc-title{ font-weight:700; margin-bottom:8px }
-    .proc-row{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fafcff; display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fafcff; flex-wrap:nowrap; }
-.proc-row label span{ white-space:nowrap; }
+    .proc-row{ display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fafcff; flex-wrap:nowrap; }
+    .proc-row label span{ white-space:nowrap; }
     .proc-row.disabled{ opacity:.5 }
     .proc-meta{ font-size:.85em; color:var(--muted) }
-    .proc-controls{ display:flex; gap:8px; align-items:center; margin-left:auto; min-width:120px; display:flex; gap:8px; align-items:center }
+    .proc-controls{ display:flex; gap:8px; align-items:center; margin-left:auto; min-width:120px; }
     .hint{ font-size:.85em; color:var(--muted) }
 
     .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#f1f5fb; border:1px solid #e2e8f0; padding:2px 6px; border-radius:6px }
 
     footer{ text-align:center; font-size: .8em; color:#6a7492; margin-top: 26px; }
-  select[data-proc-opt]{ width:100%; max-width:200px; }
-</style>
+    select[data-proc-opt]{ width:100%; max-width:200px; }
+  </style>
 </head>
 <body>
   <h1>白洋舍 料金シミュレーター</h1>
@@ -213,18 +213,25 @@
   //   運用：文言変更はここ（processingDataDesc）。計算根拠は下の PROC_MASTER を修正
   // =====================================================
   const processingDataDesc = [
-    { name: "防虫加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-    { name: "はっ水加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-    { name: "汗すっきり加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-    { name: "ポリジン・ウォッシュイン加工※", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円\n※ふとんのポリジン加工の場合\n1500円/枚" },
-    { name: "しっとり加工(3～6月限定)", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-    { name: "リントラク加工", description: "※スカート　リントラク加工\nヒダ3本まで　800円\nヒダ4本～10本まで　1000円\nヒダ11本～30本まで　1500円\n総プリーツは加工しない\n※スラックス・ズボン　1000円" },
-    { name: "シロセット加工", description: "※スラックス・ズボン1000円" },
-    { name: "和服はっ水加工", description: "3500円" },
-    { name: "毛皮防虫加工", description: "コート・ジャケット等　3500円\nマフラー・ショール・付属品等　2500円" },
-    { name: "防ダニ加工(毛布・布団・じゅうたんなど)", description: "毛布　オリジナル料金の50％を加算する\nふとん　1500円\n座布団　600円\nじゅうたん　1㎡につき400円\n1畳につき660円" },
-    { name: "防カビ加工(カーテンのみ)", description: "オリジナル料金の50％加算。\n但し、最低400円　上限2500円" },
-    { name: "防炎加工(カーテンのみ)", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円\n防炎加工可能製品に限る" }
+    { name: "防虫加工", description: `ニオイがなく、色や風合いも変わらない防虫効果に優れた加工です。
+虫害に遭いやすいウールやカシミヤ素材のセーター、コート、スーツなどにお勧めです。` },
+    { name: "はっ水加工", description: `はっ水性と通気性を両立した加工です。急な雨や、飲料などの汚れから衣類を守ります。
+トレンチコートやスーツ、ネクタイにもおすすめです。` },
+    { name: "汗すっきり加工", description: `ドライクリーニングの良さはそのままに、汗などの水溶性汚れをよく落とす加工です。汗によるゴワゴワ感が無くなり、スッキリしなやかな風合いに仕上がります。
+水洗いができない夏物衣類など、汗汚れが気になるアイテムにおすすめです。` },
+    { name: "ポリジン・ウォッシュイン加工※", description: `銀イオンのチカラで衣類表面の細菌の増殖を防ぎ、汗などの細菌由来のニオイの発生を抑えます。
+シャツやブラウスのほか、シーツ、ふとんなどの寝具類などにおすすめです。` },
+    { name: "しっとり加工", description: `毛製品にしっとり感を与える加工です。素材によっては、静電気が生じにくくなる効果もあります。
+マフラーやセーター、カーディガン、コートなどにおすすめです。` },
+    { name: "リントラク加工", description: `「樹脂」を用いて、シャープな折目を保つ加工です。コットンパンツにおすすめです。※スカートはリントラク加工のみとなります。
+※総プリーツ品は加工ができません。` },
+    { name: "シロセット加工", description: "「専用の加工剤」を用いて、ソフトな折目を保つ加工です。ウール製品が対象です。" },
+    { name: "和服はっ水加工", description: `和服のクリーニングノウハウを活かし、雨や水をはじき汚れを付きにくくする加工です。
+和服と帯が対象です。` },
+    { name: "毛皮防虫加工", description: "大切な毛皮製品にも防虫加工を！毛皮製品の裏地に防虫加工を施すことで、毛皮を虫害から守ります。" },
+    { name: "防ダニ加工(毛布・布団・じゅうたんなど)", description: "ダニを寄せ付けない忌避効果でいつでも快適な睡眠をサポート。安全性が高くお子様がいるご家庭でも安心してご利用いただけます。" },
+    { name: "防カビ加工(カーテンのみ)", description: "窓ガラスの結露や室内外のホコリ、空調設備の影響でカーテンはカビが生えやすくなっています。毎日使うカーテンに是非おすすめです。" },
+    { name: "防炎加工(カーテンのみ)", description: "防炎加工は火が燃え移った場合でも炎の発生を抑え火炎の延焼を防ぎます。" }
   ];
 
   const guideSelect = document.getElementById('processingInfoSelect');
@@ -234,7 +241,7 @@
       const opt = document.createElement('option');
       opt.value = item.name; opt.textContent = item.name; guideSelect.appendChild(opt);
     });
-    guideSelect.addEventListener('change', ()=>{
+    guideSelect.addEventListener('change', () => {
       const target = processingDataDesc.find(x=>x.name===guideSelect.value);
       guideText.textContent = target ? target.description : '';
     });
@@ -447,7 +454,7 @@
       total += Number(data.lineTotal)||0;
       row.querySelector('.lineTotal').textContent = Number(data.lineTotal||0);
       const chipWrap = row.querySelector('.chips');
-      if(chipWrap){ chipWrap.innerHTML = `${renderChips(data.processing)} <button class=\"btn-ghost kbd editProcBtn\">加工を編集</button>`; }
+      if(chipWrap){ chipWrap.innerHTML = `${renderChips(data.processing)} <button class="btn-ghost kbd editProcBtn">加工を編集</button>`; }
     });
     totalSpan.textContent = total.toLocaleString();
     saveState();
@@ -680,6 +687,28 @@
   // ================= 初期化 =================
   (function init(){
     loadState();
+  })();
+</script>
+
+<script>
+  // ================= 最小テスト（開発者向けコンソール） =================
+  (function selfTest(){
+    try{
+      console.group('%cSelfTest','color:#0b6dd6;font-weight:bold');
+      console.assert(typeof processingDataDesc !== 'undefined' && processingDataDesc.length > 0, 'processingDataDesc が空');
+      console.assert(Array.isArray(items) && items.length > 0, 'items が未定義または空');
+      console.assert(typeof computePercent === 'function', 'computePercent 未定義');
+      // テストケース
+      console.assert(computePercent(1000,0.5,400,2500).amount === 500, '50%基本計算 NG');
+      console.assert(computePercent(100,0.5,400,2500).amount === 400, '下限400適用 NG');
+      console.assert(computePercent(10000,0.5,400,2500).amount === 2500, '上限2500適用 NG');
+      console.assert(PROC_MASTER.find(p=>p.name==='リントラク') && PROC_MASTER.find(p=>p.name==='シロセット'), '折り目加工 定義NG');
+      console.log('✅ SelfTest OK');
+    }catch(err){
+      console.error('❌ SelfTest 失敗', err);
+    }finally{
+      console.groupEnd();
+    }
   })();
 </script>
 </body>
