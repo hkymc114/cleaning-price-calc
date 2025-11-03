@@ -60,16 +60,18 @@
 
     .proc-group{ margin-bottom:14px; }
     .proc-title{ font-weight:700; margin-bottom:8px }
-    .proc-row{ display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fafcff }
+    .proc-row{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fafcff; display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fafcff; flex-wrap:nowrap; }
+.proc-row label span{ white-space:nowrap; }
     .proc-row.disabled{ opacity:.5 }
     .proc-meta{ font-size:.85em; color:var(--muted) }
-    .proc-controls{ display:flex; gap:8px; align-items:center }
+    .proc-controls{ display:flex; gap:8px; align-items:center; margin-left:auto; min-width:120px; display:flex; gap:8px; align-items:center }
     .hint{ font-size:.85em; color:var(--muted) }
 
     .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background:#f1f5fb; border:1px solid #e2e8f0; padding:2px 6px; border-radius:6px }
 
     footer{ text-align:center; font-size: .8em; color:#6a7492; margin-top: 26px; }
-  </style>
+  select[data-proc-opt]{ width:100%; max-width:200px; }
+</style>
 </head>
 <body>
   <h1>白洋舍 料金シミュレーター</h1>
@@ -502,7 +504,7 @@
     { code:'P_MITE_FUTON', name:'防ダニ（ふとん：1500）', calcType:'fixed', amount:1500, appliesTo:'none', isApplicable: (row)=> /布団/.test(row.name) },
     { code:'P_ANTI_MOLD', name:'防カビ（カーテンのみ：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /カーテン/.test(row.name) && row.originalPrice!=null },
     { code:'P_FLAME', name:'防炎（カーテンのみ：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /カーテン/.test(row.name) && row.originalPrice!=null },
-    { code:'C_RINTORAKU', name:'リントラク（スカート/スラックス）', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スカート|スラックス|ズボン/.test(row.name),
+    { code:'C_RINTORAKU', name:'リントラク', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スカート|スラックス|ズボン/.test(row.name),
       options:[
         { key:'skirt_pleats_3',   label:'スカート ヒダ3本まで', amount:800 },
         { key:'skirt_pleats_4_10',label:'スカート ヒダ4〜10本', amount:1000 },
@@ -510,7 +512,7 @@
         { key:'pants',            label:'スラックス・ズボン', amount:1000 }
       ]
     },
-    { code:'C_SHIROSET', name:'シロセット（スラックス・ズボン）', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スラックス|ズボン/.test(row.name),
+    { code:'C_SHIROSET', name:'シロセット', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スラックス|ズボン/.test(row.name),
       options:[ { key:'pants', label:'シロセット加工', amount:1000 } ]
     }
   ];
