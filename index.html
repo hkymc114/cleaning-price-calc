@@ -87,7 +87,12 @@
   <h1>白洋舍 料金シミュレーター</h1>
 
   <div class="toolbar">
-    <div class="form-group">
+     <div class="form-group">
+      <!-- 追加：促し文（検索ボックスの前） -->
+      <div class="search-hint" id="searchHint">
+        クリーニングしたい品物を入力し、候補から選択してから「検索から追加」を押してください。<br>
+        種別は必要に応じてプルダウンで切り替えられます（和服は「和洗料金」、布団は「布団料金」など）。
+      </div>
       <label for="itemSearch">🔍 品名検索:</label>
       <input id="itemSearch" type="search" list="itemSuggestions" placeholder="品名を入力して選択" />
       <datalist id="itemSuggestions"></datalist>
