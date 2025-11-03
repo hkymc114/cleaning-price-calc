@@ -22,8 +22,10 @@
     .btn-ghost{ background:#fff; color:#0b1220; }
     .btn-danger{ background: var(--danger); color:#fff; border:none; }
 
-    table { border-collapse: collapse; width: 100%; margin-top: 14px; overflow-x: auto; background: var(--card); border:1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
-    thead th { position: sticky; top: 0; background: #f8fbff; }
+    /* === 表のスクロール用ラッパ === */
+    .table-wrap{ border:1px solid var(--line); border-radius:12px; background:var(--card); box-shadow: var(--shadow); overflow:auto; max-height:60vh; }
+    table { border-collapse: collapse; width: 100%; margin: 0; }
+    thead th { position: sticky; top: 0; background: #f8fbff; z-index: 2; }
     th, td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; font-size: 0.95em; white-space: nowrap; }
     th:nth-child(1), td:nth-child(1){min-width:180px}
     th:nth-child(4), td:nth-child(4){min-width:220px}
@@ -42,10 +44,10 @@
 
     .section { margin-top: 12px; display:flex; gap:10px; align-items:center }
 
-    .accordion-container { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px; box-shadow: var(--shadow); }
-    .accordion-item { margin-bottom: 8px; border-bottom: 1px dashed var(--line); }
-    .accordion-header { cursor: pointer; font-weight: 600; padding: 8px; background: var(--accent-2); border-radius: 8px; }
-    .accordion-body { padding: 10px; display: none; background: #ffffff; border-left: 3px solid var(--accent); margin-top: 4px; white-space: pre-line; border-radius: 8px; }
+    /* ===== プルダウン案内UI ===== */
+    .guide-box{ border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--card); box-shadow:var(--shadow); }
+    .guide-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+    .guide-desc{ margin-top:8px; padding:10px; background:#ffffff; border-left:3px solid var(--accent); border-radius:8px; white-space:pre-line }
 
     /* ドロワー */
     .drawer-overlay{ position: fixed; inset:0; background: rgba(4,18,35,.35); display:none; z-index: 40; }
@@ -95,26 +97,37 @@
 
   <div class="section hint">追加後に各行の<strong>加工を編集</strong>から設定できます。行ごとに加工の有効/無効が自動判定されます。</div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>品目</th>
-        <th>種別</th>
-        <th>金額（基準）</th>
-        <th>加工</th>
-        <th>小計</th>
-        <th>操作</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
+  <!-- 表をスクロールさせるためにラッパを追加 -->
+  <div class="table-wrap" id="tableWrap">
+    <table>
+      <thead>
+        <tr>
+          <th>品目</th>
+          <th>種別</th>
+          <th>金額（基準）</th>
+          <th>加工</th>
+          <th>小計</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
 
   <p id="summary">合計金額(税抜): <span id="total">0</span> 円</p>
 
-  <!-- 加工の説明（既存のアコーディオン） -->
+  <!-- ▼▼ 変更：アコーディオン→プルダウン案内に刷新 ▼▼ -->
   <div style="margin-top: 24px;">
     <h2>各種加工のご案内</h2>
-    <div class="accordion-container"></div>
+    <div class="guide-box">
+      <div class="guide-row">
+        <label for="processingInfoSelect">加工を選択:</label>
+        <select id="processingInfoSelect">
+          <option value="">選択してください</option>
+        </select>
+      </div>
+      <pre id="processingInfoText" class="guide-desc"></pre>
+    </div>
   </div>
 
   <!-- ドロワー -->
@@ -167,11 +180,12 @@
   </aside>
 
   <footer>
-    © 2025 白洋舍料金計算アプリ Ver.2.0.2（加工対応プレビュー）<br />
+    © 2025 白洋舍料金計算アプリ Ver.2.0.3（案内UI刷新＋表スクロール）<br />
     <details style="margin-top: 6px;">
       <summary>アップデート情報</summary>
       <div style="text-align: left; margin: 0 auto; max-width: 560px;">
         <ul style="padding-left: 1.2em; line-height:1.7;">
+          <li>2025/11/03 - Ver.2.0.3 各種加工案内をプルダウン化／表ボディスクロール対応</li>
           <li>2025/11/03 - Ver.2.0.2 ローカル保存・復元と行別加工編集ドロワーを実装</li>
           <li>2025/07/14 - Ver.1.2.1 フィードバックフォームの実装</li>
           <li>2025/07/13 - Ver.1.1.0 加工品目の修正</li>
@@ -189,535 +203,482 @@
 
   <!-- =============================================
   ▼▼▼ ここからJavaScript（重要処理ごとの解説入り） ▼▼▼
-  ※ 各ブロックごとにコメントを追加し、コード全体の理解を補助
   ============================================= -->
 <script>
-    // =====================================================
-    // ▼ 加工説明（アコーディオン）
-    //   目的：店頭説明・問い合わせ対応時に、加工の根拠（%／固定／条件）を可視化
-    //   役割：UI上の折りたたみ説明のみ。計算ロジックには関与しない
-    //   運用：文言変更はここ（processingDataDesc）。金額や計算根拠は下の PROC_MASTER を修正
-    // =====================================================
-    const processingDataDesc = [
-      { name: "防虫加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-      { name: "はっ水加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-      { name: "汗すっきり加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-      { name: "ポリジン・ウォッシュイン加工※", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円\n※ふとんのポリジン加工の場合\n1500円/枚" },
-      { name: "しっとり加工(3～6月限定)", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
-      { name: "リントラク加工", description: "※スカート　リントラク加工\nヒダ3本まで　800円\nヒダ4本～10本まで　1000円\nヒダ11本～30本まで　1500円\n総プリーツは加工しない\n※スラックス・ズボン　1000円" },
-      { name: "シロセット加工", description: "※スラックス・ズボン1000円" },
-      { name: "和服はっ水加工", description: "3500円" },
-      { name: "毛皮防虫加工", description: "コート・ジャケット等　3500円\nマフラー・ショール・付属品等　2500円" },
-      { name: "防ダニ加工(毛布・布団・じゅうたんなど)", description: "毛布　オリジナル料金の50％を加算する\nふとん　1500円\n座布団　600円\nじゅうたん　1㎡につき400円\n1畳につき660円" },
-      { name: "防カビ加工(カーテンのみ)", description: "オリジナル料金の50％加算。\n但し、最低400円　上限2500円" },
-      { name: "防炎加工(カーテンのみ)", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円\n防炎加工可能製品に限る" }
-    ];
+  // =====================================================
+  // ▼ 加工説明（プルダウン）
+  //   目的：店頭説明・問い合わせ対応時に、加工の根拠（%／固定／条件）を可視化
+  //   運用：文言変更はここ（processingDataDesc）。計算根拠は下の PROC_MASTER を修正
+  // =====================================================
+  const processingDataDesc = [
+    { name: "防虫加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
+    { name: "はっ水加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
+    { name: "汗すっきり加工", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
+    { name: "ポリジン・ウォッシュイン加工※", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円\n※ふとんのポリジン加工の場合\n1500円/枚" },
+    { name: "しっとり加工(3～6月限定)", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円" },
+    { name: "リントラク加工", description: "※スカート　リントラク加工\nヒダ3本まで　800円\nヒダ4本～10本まで　1000円\nヒダ11本～30本まで　1500円\n総プリーツは加工しない\n※スラックス・ズボン　1000円" },
+    { name: "シロセット加工", description: "※スラックス・ズボン1000円" },
+    { name: "和服はっ水加工", description: "3500円" },
+    { name: "毛皮防虫加工", description: "コート・ジャケット等　3500円\nマフラー・ショール・付属品等　2500円" },
+    { name: "防ダニ加工(毛布・布団・じゅうたんなど)", description: "毛布　オリジナル料金の50％を加算する\nふとん　1500円\n座布団　600円\nじゅうたん　1㎡につき400円\n1畳につき660円" },
+    { name: "防カビ加工(カーテンのみ)", description: "オリジナル料金の50％加算。\n但し、最低400円　上限2500円" },
+    { name: "防炎加工(カーテンのみ)", description: "オリジナル料金の50％を加算する。\n但し、最低400円　上限2500円\n防炎加工可能製品に限る" }
+  ];
 
-    const accordionContainer = document.querySelector('.accordion-container');
+  const guideSelect = document.getElementById('processingInfoSelect');
+  const guideText = document.getElementById('processingInfoText');
+  (function buildProcessingGuide(){
     processingDataDesc.forEach(item => {
-      const wrap = document.createElement('div');
-      wrap.className = 'accordion-item';
-      const header = document.createElement('div');
-      header.className = 'accordion-header';
-      header.textContent = item.name;
-      const body = document.createElement('div');
-      body.className = 'accordion-body';
-      body.textContent = item.description;
-      header.addEventListener('click', () => {
-        body.style.display = (body.style.display === 'block') ? 'none' : 'block';
+      const opt = document.createElement('option');
+      opt.value = item.name; opt.textContent = item.name; guideSelect.appendChild(opt);
+    });
+    guideSelect.addEventListener('change', ()=>{
+      const target = processingDataDesc.find(x=>x.name===guideSelect.value);
+      guideText.textContent = target ? target.description : '';
+    });
+  })();
+</script>
+
+<script>
+  // =====================================
+  // ▼ 品目データ（重複削除済・料金マスタ）
+  // =====================================
+  const items = [
+    { "name": "麻ワイシャツ", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
+    { "name": "アンダーシャツ", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
+    { "name": "ウール丹前", "オリジナル料金": 2700, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
+    { "name": "ウール肌着上", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "ウール肌着下", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "ウェディングドレス", "オリジナル料金": null, "ローヤル料金": 36000, "素材別料金": null, "クリスタル料金": null },
+    { "name": "打掛", "和洗料金": 26000 },
+    { "name": "羽毛布団", "布団料金": 8500, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
+    { "name": "オーバーオール・サロペット", "オリジナル料金": 1800, "ローヤル料金": 3600, "素材別料金": 3600, "クリスタル料金": 3600 },
+    { "name": "カーディガン", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "カーディガン裏地付き", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "かいまき毛布", "オリジナル料金": 1600, "ローヤル料金": null, "素材別料金": 3200, "クリスタル料金": 3200 },
+    { "name": "ガウン", "オリジナル料金": 1850, "ローヤル料金": null, "素材別料金": 3700, "クリスタル料金": 3700 },
+    { "name": "学生服上下(ジャケット・スラックス)", "オリジナル料金": 1800, "ローヤル料金": null, "素材別料金": 3600, "クリスタル料金": 3600 },
+    { "name": "学生服上下(ジャケット・スカート)", "オリジナル料金": 1800, "ローヤル料金": null, "素材別料金": 3600, "クリスタル料金": 3600 },
+    { "name": "学生服上下(ジャケット・ジャンパースカート)", "オリジナル料金": 2250, "ローヤル料金": null, "素材別料金": 4500, "クリスタル料金": 4500 },
+    { "name": "学生服上下(ベスト・スカート)", "オリジナル料金": 1800, "ローヤル料金": null, "素材別料金": 3600, "クリスタル料金": 3600 },
+    { "name": "学生服ジャケット", "オリジナル料金": 1050, "ローヤル料金": null, "素材別料金": 2100, "クリスタル料金": 2100 },
+    { "name": "学生服ジャンパースカート", "オリジナル料金": 1200, "ローヤル料金": null, "素材別料金": 2400, "クリスタル料金": 2400 },
+    { "name": "学生服ズボン", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": 1500, "クリスタル料金": 1500 },
+    { "name": "学生服スカート", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": 1500, "クリスタル料金": 1500 },
+    { "name": "学生服ベスト", "オリジナル料金": 600, "ローヤル料金": null, "素材別料金": 1200, "クリスタル料金": 1200 },
+    { "name": "学生服リボン・蝶タイ", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": 1500, "クリスタル料金": 1500 },
+    { "name": "学生服ワンピース", "オリジナル料金": 1200, "ローヤル料金": null, "素材別料金": 2400, "クリスタル料金": 2400 },
+    { "name": "カジュアルシャツ", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "化繊きもの(袷)", "和洗料金": 7800 },
+    { "name": "化繊きもの(単)", "和洗料金": 6600 },
+    { "name": "カットソー", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "きもの(袷)", "和洗料金": 13000 },
+    { "name": "きもの(単)", "和洗料金": 11000 },
+    { "name": "コート", "オリジナル料金": 2600, "ローヤル料金": 5200, "素材別料金": 5200, "クリスタル料金": 5200 },
+    { "name": "こたつ布団", "布団料金": 4300 },
+    { "name": "シーツ・フィットシーツ", "オリジナル料金": 750 },
+    { "name": "ジーンズ", "オリジナル料金": 900, "ローヤル料金": 1800, "素材別料金": 1800, "クリスタル料金": 1800 },
+    { "name": "ジャンパー", "オリジナル料金": 1700, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "ジャケット", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "セーター", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "セーター飾り付き", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
+    { "name": "ショール", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "スーツ(ジャケット・スカート)", "オリジナル料金": 2600, "ローヤル料金": 5200, "素材別料金": 5200, "クリスタル料金": 5200 },
+    { "name": "スーツ(ジャケット・スラックス)", "オリジナル料金": 2600, "ローヤル料金": 5200, "素材別料金": 5200, "クリスタル料金": 5200 },
+    { "name": "スーツ三揃(ジャケット・スラックス・ベスト)", "オリジナル料金": 3450, "ローヤル料金": 6900, "素材別料金": 6900, "クリスタル料金": 6900 },
+    { "name": "スウェットシャツ・トレーナー", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "スカート(ミニ・タイト・フレアー)", "オリジナル料金": 900, "ローヤル料金": 1800, "素材別料金": 1800, "クリスタル料金": 1800 },
+    { "name": "スカート(マキシ・プリーツ)", "オリジナル料金": 1400, "ローヤル料金": 2800, "素材別料金": 2800, "クリスタル料金": 2800 },
+    { "name": "スカート(総プリーツ)", "ローヤル料金": 3200 },
+    { "name": "スカーフ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "スラックス", "オリジナル料金": 900, "ローヤル料金": 1800, "素材別料金": 1800, "クリスタル料金": 1800 },
+    { "name": "タオルケット", "オリジナル料金": 1200 },
+    { "name": "ダウンコート", "オリジナル料金": 4800, "素材別料金": 9600, "クリスタル料金": 9600 },
+    { "name": "ダウンジャケット", "オリジナル料金": 3000, "素材別料金": 6000, "クリスタル料金": 6000 },
+    { "name": "ダウンベスト", "オリジナル料金": 1900, "素材別料金": 3800, "クリスタル料金": 3800 },
+    { "name": "ダウン肩当", "オリジナル料金": 1900 },
+    { "name": "丹前毛布", "オリジナル料金": 1600, "素材別料金": 3200, "クリスタル料金": 3200 },
+    { "name": "丹前綿入り", "オリジナル料金": 2600, "素材別料金": 5200, "クリスタル料金": 5200 },
+    { "name": "ちゃんちゃんこ", "オリジナル料金": 1700 },
+    { "name": "中振袖", "和洗料金": 18000 },
+    { "name": "Tシャツ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "デニムジャケット", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "留袖", "和洗料金": 14000 },
+    { "name": "長じゅばん", "和洗料金": 5500, "オリジナル料金": 1800 },
+    { "name": "ニットアンサンブル", "オリジナル料金": 1700, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "ニットジャケット", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "ニットベスト", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "ぬいぐるみ", "オリジナル料金": 2400 },
+    { "name": "ネクタイ", "オリジナル料金": 650, "素材別料金": 1000 },
+    { "name": "パジャマ上下", "オリジナル料金": 1700, "素材別料金": 3400, "クリスタル料金": 3400 },
+    { "name": "バスローブ", "オリジナル料金": 1100 },
+    { "name": "肌じゅばん", "和洗料金": 1800, "オリジナル料金": 1800 },
+    { "name": "バルキーセーター・オイルドセーター", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
+    { "name": "ハンカチーフ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "ピロケース", "オリジナル料金": 600 },
+    { "name": "ひよく付き留袖", "和洗料金": 14000 },
+    { "name": "布団カバー", "オリジナル料金": 1000 },
+    { "name": "振袖", "和洗料金": 18000 },
+    { "name": "ベスト", "オリジナル料金": 850, "ローヤル料金": 1700, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "訪問着", "和洗料金": 13000 },
+    { "name": "ポロシャツ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "前ひだワイシャツ", "オリジナル料金": 1700 },
+    { "name": "マフラー", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
+    { "name": "綿・化繊わた布団", "布団料金": 7000 },
+    { "name": "毛布", "オリジナル料金": 1600, "素材別料金": 3200, "クリスタル料金": 3200 },
+    { "name": "毛布(二重合わせ)", "オリジナル料金": 3200, "素材別料金": 6400, "クリスタル料金": 6400 },
+    { "name": "喪服", "和洗料金": 14000 },
+    { "name": "ローヤルワイシャツ", "オリジナル料金": 750 },
+    { "name": "ロングカーディガン", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
+    { "name": "ロングセーター", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
+    { "name": "ロングニットベスト", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
+    { "name": "ゆかた(麻・綿・絽・紅梅等）", "和洗料金": 6800 },
+    { "name": "ゆかた(外出用）", "オリジナル料金": 3400, "素材別料金": 6800, "クリスタル料金": 6800 },
+    { "name": "ゆかた(絞り）", "和洗料金": 6800 },
+    { "name": "ゆかた(寝巻用)", "オリジナル料金": 1050 },
+    { "name": "ワイシャツ", "オリジナル料金": 400 },
+    { "name": "和服地コート", "素材別料金": 5200, "クリスタル料金": 5200 },
+    { "name": "ワンピース", "オリジナル料金": 1800, "ローヤル料金": 3600, "素材別料金": 3600, "クリスタル料金": 3600 }
+  ];
+
+  const typeSelect = document.getElementById("typeSelect");
+  const tableBody = document.getElementById("tableBody");
+  const totalSpan = document.getElementById("total");
+  const itemSuggestions = document.getElementById("itemSuggestions");
+
+  items.forEach(item => {
+    const option = document.createElement("option");
+    option.value = item.name; itemSuggestions.appendChild(option);
+  });
+</script>
+
+<script>
+  // ================= Schema v2（行管理・保存） =================
+  const STORAGE_KEY = "hakuyosha_fee_sim_v2"; // v2: processing対応
+
+  function getOriginalPriceByName(name){
+    const it = items.find(i => i.name === name);
+    return it && typeof it["オリジナル料金"] === 'number' ? it["オリジナル料金"] : null;
+  }
+
+  function getPriceByType(item, typeKey){
+    return (item && typeof item[typeKey] === 'number') ? item[typeKey] : null;
+  }
+
+  function buildRowData(name, typeKey){
+    const item = items.find(i => i.name === name);
+    if(!item) return null;
+    const basePrice = getPriceByType(item, typeKey);
+    if(basePrice == null) return null;
+    const originalPrice = getOriginalPriceByName(name);
+    return {
+      name,
+      typeKey,                // 例: "ローヤル料金"
+      basePrice,              // 選択種別の基準金額
+      originalPrice,          // %計算の母体（null可）
+      processing: [],         // 後で編集
+      processingTotal: 0,
+      lineTotal: basePrice
+    };
+  }
+
+  function saveState(){
+    try{
+      const rows = Array.from(tableBody.querySelectorAll('tr')).map(tr=>{
+        return JSON.parse(tr.dataset.rowjson);
       });
-      wrap.appendChild(header); wrap.appendChild(body); accordionContainer.appendChild(wrap);
-    });
-  </script>
-
-  <script>
-    // =====================================
-    // ▼ 品目データ（重複削除済・料金マスタ）
-    //   目的：白洋舍公式料金表に基づき、品目と各種料金の対応を保持
-    //   役割：検索候補や基準金額の参照に使用
-    // =====================================
-    //  品目データ（重複削除済）
-    // ========================
-    const items = [
-      { "name": "麻ワイシャツ", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
-      { "name": "アンダーシャツ", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
-      { "name": "ウール丹前", "オリジナル料金": 2700, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
-      { "name": "ウール肌着上", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "ウール肌着下", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "ウェディングドレス", "オリジナル料金": null, "ローヤル料金": 36000, "素材別料金": null, "クリスタル料金": null },
-      { "name": "打掛", "和洗料金": 26000 },
-      { "name": "羽毛布団", "布団料金": 8500, "ローヤル料金": null, "素材別料金": null, "クリスタル料金": null },
-      { "name": "オーバーオール・サロペット", "オリジナル料金": 1800, "ローヤル料金": 3600, "素材別料金": 3600, "クリスタル料金": 3600 },
-      { "name": "カーディガン", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "カーディガン裏地付き", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "かいまき毛布", "オリジナル料金": 1600, "ローヤル料金": null, "素材別料金": 3200, "クリスタル料金": 3200 },
-      { "name": "ガウン", "オリジナル料金": 1850, "ローヤル料金": null, "素材別料金": 3700, "クリスタル料金": 3700 },
-      { "name": "学生服上下(ジャケット・スラックス)", "オリジナル料金": 1800, "ローヤル料金": null, "素材別料金": 3600, "クリスタル料金": 3600 },
-      { "name": "学生服上下(ジャケット・スカート)", "オリジナル料金": 1800, "ローヤル料金": null, "素材別料金": 3600, "クリスタル料金": 3600 },
-      { "name": "学生服上下(ジャケット・ジャンパースカート)", "オリジナル料金": 2250, "ローヤル料金": null, "素材別料金": 4500, "クリスタル料金": 4500 },
-      { "name": "学生服上下(ベスト・スカート)", "オリジナル料金": 1800, "ローヤル料金": null, "素材別料金": 3600, "クリスタル料金": 3600 },
-      { "name": "学生服ジャケット", "オリジナル料金": 1050, "ローヤル料金": null, "素材別料金": 2100, "クリスタル料金": 2100 },
-      { "name": "学生服ジャンパースカート", "オリジナル料金": 1200, "ローヤル料金": null, "素材別料金": 2400, "クリスタル料金": 2400 },
-      { "name": "学生服ズボン", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": 1500, "クリスタル料金": 1500 },
-      { "name": "学生服スカート", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": 1500, "クリスタル料金": 1500 },
-      { "name": "学生服ベスト", "オリジナル料金": 600, "ローヤル料金": null, "素材別料金": 1200, "クリスタル料金": 1200 },
-      { "name": "学生服リボン・蝶タイ", "オリジナル料金": 750, "ローヤル料金": null, "素材別料金": 1500, "クリスタル料金": 1500 },
-      { "name": "学生服ワンピース", "オリジナル料金": 1200, "ローヤル料金": null, "素材別料金": 2400, "クリスタル料金": 2400 },
-      { "name": "カジュアルシャツ", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "化繊きもの(袷)", "和洗料金": 7800 },
-      { "name": "化繊きもの(単)", "和洗料金": 6600 },
-      { "name": "カットソー", "オリジナル料金": 850, "ローヤル料金": null, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "きもの(袷)", "和洗料金": 13000 },
-      { "name": "きもの(単)", "和洗料金": 11000 },
-      { "name": "コート", "オリジナル料金": 2600, "ローヤル料金": 5200, "素材別料金": 5200, "クリスタル料金": 5200 },
-      { "name": "こたつ布団", "布団料金": 4300 },
-      { "name": "シーツ・フィットシーツ", "オリジナル料金": 750 },
-      { "name": "ジーンズ", "オリジナル料金": 900, "ローヤル料金": 1800, "素材別料金": 1800, "クリスタル料金": 1800 },
-      { "name": "ジャンパー", "オリジナル料金": 1700, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "ジャケット", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "セーター", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "セーター飾り付き", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
-      { "name": "ショール", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "スーツ(ジャケット・スカート)", "オリジナル料金": 2600, "ローヤル料金": 5200, "素材別料金": 5200, "クリスタル料金": 5200 },
-      { "name": "スーツ(ジャケット・スラックス)", "オリジナル料金": 2600, "ローヤル料金": 5200, "素材別料金": 5200, "クリスタル料金": 5200 },
-      { "name": "スーツ三揃(ジャケット・スラックス・ベスト)", "オリジナル料金": 3450, "ローヤル料金": 6900, "素材別料金": 6900, "クリスタル料金": 6900 },
-      { "name": "スウェットシャツ・トレーナー", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "スカート(ミニ・タイト・フレアー)", "オリジナル料金": 900, "ローヤル料金": 1800, "素材別料金": 1800, "クリスタル料金": 1800 },
-      { "name": "スカート(マキシ・プリーツ)", "オリジナル料金": 1400, "ローヤル料金": 2800, "素材別料金": 2800, "クリスタル料金": 2800 },
-      { "name": "スカート(総プリーツ)", "ローヤル料金": 3200 },
-      { "name": "スカーフ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "スラックス", "オリジナル料金": 900, "ローヤル料金": 1800, "素材別料金": 1800, "クリスタル料金": 1800 },
-      { "name": "タオルケット", "オリジナル料金": 1200 },
-      { "name": "ダウンコート", "オリジナル料金": 4800, "素材別料金": 9600, "クリスタル料金": 9600 },
-      { "name": "ダウンジャケット", "オリジナル料金": 3000, "素材別料金": 6000, "クリスタル料金": 6000 },
-      { "name": "ダウンベスト", "オリジナル料金": 1900, "素材別料金": 3800, "クリスタル料金": 3800 },
-      { "name": "ダウン肩当", "オリジナル料金": 1900 },
-      { "name": "丹前毛布", "オリジナル料金": 1600, "素材別料金": 3200, "クリスタル料金": 3200 },
-      { "name": "丹前綿入り", "オリジナル料金": 2600, "素材別料金": 5200, "クリスタル料金": 5200 },
-      { "name": "ちゃんちゃんこ", "オリジナル料金": 1700 },
-      { "name": "中振袖", "和洗料金": 18000 },
-      { "name": "Tシャツ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "デニムジャケット", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "留袖", "和洗料金": 14000 },
-      { "name": "長じゅばん", "和洗料金": 5500, "オリジナル料金": 1800 },
-      { "name": "ニットアンサンブル", "オリジナル料金": 1700, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "ニットジャケット", "オリジナル料金": 1700, "ローヤル料金": 3400, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "ニットベスト", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "ぬいぐるみ", "オリジナル料金": 2400 },
-      { "name": "ネクタイ", "オリジナル料金": 650, "素材別料金": 1000 },
-      { "name": "パジャマ上下", "オリジナル料金": 1700, "素材別料金": 3400, "クリスタル料金": 3400 },
-      { "name": "バスローブ", "オリジナル料金": 1100 },
-      { "name": "肌じゅばん", "和洗料金": 1800, "オリジナル料金": 1800 },
-      { "name": "バルキーセーター・オイルドセーター", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
-      { "name": "ハンカチーフ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "ピロケース", "オリジナル料金": 600 },
-      { "name": "ひよく付き留袖", "和洗料金": 14000 },
-      { "name": "布団カバー", "オリジナル料金": 1000 },
-      { "name": "振袖", "和洗料金": 18000 },
-      { "name": "ベスト", "オリジナル料金": 850, "ローヤル料金": 1700, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "訪問着", "和洗料金": 13000 },
-      { "name": "ポロシャツ", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "前ひだワイシャツ", "オリジナル料金": 1700 },
-      { "name": "マフラー", "オリジナル料金": 850, "素材別料金": 1700, "クリスタル料金": 1700 },
-      { "name": "綿・化繊わた布団", "布団料金": 7000 },
-      { "name": "毛布", "オリジナル料金": 1600, "素材別料金": 3200, "クリスタル料金": 3200 },
-      { "name": "毛布(二重合わせ)", "オリジナル料金": 3200, "素材別料金": 6400, "クリスタル料金": 6400 },
-      { "name": "喪服", "和洗料金": 14000 },
-      { "name": "ローヤルワイシャツ", "オリジナル料金": 750 },
-      { "name": "ロングカーディガン", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
-      { "name": "ロングセーター", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
-      { "name": "ロングニットベスト", "オリジナル料金": 1500, "素材別料金": 3000, "クリスタル料金": 3000 },
-      { "name": "ゆかた(麻・綿・絽・紅梅等）", "和洗料金": 6800 },
-      { "name": "ゆかた(外出用）", "オリジナル料金": 3400, "素材別料金": 6800, "クリスタル料金": 6800 },
-      { "name": "ゆかた(絞り）", "和洗料金": 6800 },
-      { "name": "ゆかた(寝巻用)", "オリジナル料金": 1050 },
-      { "name": "ワイシャツ", "オリジナル料金": 400 },
-      { "name": "和服地コート", "素材別料金": 5200, "クリスタル料金": 5200 },
-      { "name": "ワンピース", "オリジナル料金": 1800, "ローヤル料金": 3600, "素材別料金": 3600, "クリスタル料金": 3600 }
-    ];
-
-    const typeSelect = document.getElementById("typeSelect");
-    const tableBody = document.getElementById("tableBody");
-    const totalSpan = document.getElementById("total");
-    const itemSuggestions = document.getElementById("itemSuggestions");
-
-    // datalist 生成
-    items.forEach(item => {
-      const option = document.createElement("option");
-      option.value = item.name; itemSuggestions.appendChild(option);
-    });
-
-    // =====================================================================
-    // ▼ 行管理 & 保存（schema v2）
-    //   目的：テーブル1行＝1依頼品の状態（基準金額・加工・小計）をJSONで保持
-    //   仕組：<tr> の data-rowjson に行状態を格納 → 画面更新時はこのJSONを唯一の真実源とする
-    //   保存：localStorage（キー: hakuyosha_fee_sim_v2）に配列で永続化／復元
-    //   注意：schemaVersion を上げた場合は移行処理が必要（現状は v2 固定）
-    // =====================================================================
-    const STORAGE_KEY = "hakuyosha_fee_sim_v2"; // v2: processing対応
-
-    function getOriginalPriceByName(name){
-      const it = items.find(i => i.name === name);
-      return it && typeof it["オリジナル料金"] === 'number' ? it["オリジナル料金"] : null;
-    }
-
-    function getPriceByType(item, typeKey){
-      return (item && typeof item[typeKey] === 'number') ? item[typeKey] : null;
-    }
-
-    function buildRowData(name, typeKey){
-      const item = items.find(i => i.name === name);
-      if(!item) return null;
-      const basePrice = getPriceByType(item, typeKey);
-      if(basePrice == null) return null;
-      const originalPrice = getOriginalPriceByName(name);
-      return {
-        name,
-        typeKey,                // 例: "ローヤル料金"
-        basePrice,              // 選択種別の基準金額
-        originalPrice,          // %計算の母体（null可）
-        processing: [],         // 後で編集
-        processingTotal: 0,
-        lineTotal: basePrice
+      const state = {
+        schemaVersion: 2,
+        rows,
+        selectedType: typeSelect.value,
+        lastSearch: document.getElementById('itemSearch').value || ''
       };
-    }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){ console.warn('saveState failed:', e); }
+  }
 
-    function saveState(){
-      try{
-        const rows = Array.from(tableBody.querySelectorAll('tr')).map(tr=>{
-          return JSON.parse(tr.dataset.rowjson);
-        });
-        const state = {
-          schemaVersion: 2,
-          rows,
-          selectedType: typeSelect.value,
-          lastSearch: document.getElementById('itemSearch').value || ''
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }catch(e){ console.warn('saveState failed:', e); }
-    }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return;
+      const state = JSON.parse(raw);
+      if(state.selectedType && [...typeSelect.options].some(o=>o.value===state.selectedType)){
+        typeSelect.value = state.selectedType;
+      }
+      const inp = document.getElementById('itemSearch');
+      if(inp && typeof state.lastSearch === 'string') inp.value = state.lastSearch;
+      if(Array.isArray(state.rows)){
+        tableBody.innerHTML = '';
+        state.rows.forEach(r=> addRowFromData(r));
+        updateTotal();
+      }
+    }catch(e){ console.warn('loadState failed:', e); }
+  }
 
-    function loadState(){
-      try{
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if(!raw) return;
-        const state = JSON.parse(raw);
-        if(state.selectedType && [...typeSelect.options].some(o=>o.value===state.selectedType)){
-          typeSelect.value = state.selectedType;
-        }
-        const inp = document.getElementById('itemSearch');
-        if(inp && typeof state.lastSearch === 'string') inp.value = state.lastSearch;
-        if(Array.isArray(state.rows)){
-          tableBody.innerHTML = '';
-          state.rows.forEach(r=> addRowFromData(r));
-          updateTotal();
-        }
-      }catch(e){ console.warn('loadState failed:', e); }
-    }
+  function addRowFromData(rowData){
+    const tr = document.createElement('tr');
+    tr.dataset.rowjson = JSON.stringify(rowData);
+    const chipsHtml = renderChips(rowData.processing);
+    tr.innerHTML = `
+      <td>${rowData.name}</td>
+      <td>${rowData.typeKey.replace('料金','')}</td>
+      <td>${rowData.basePrice}</td>
+      <td><div class="chips">${chipsHtml} <button class="btn-ghost kbd editProcBtn">加工を編集</button></div></td>
+      <td class="lineTotal">${rowData.lineTotal}</td>
+      <td class="actions"><button class="btn-danger deleteBtn">削除</button></td>
+    `;
+    tableBody.appendChild(tr);
+  }
 
-    function addRowFromData(rowData){
-      const tr = document.createElement('tr');
-      tr.dataset.rowjson = JSON.stringify(rowData);
-      const chipsHtml = renderChips(rowData.processing);
-      tr.innerHTML = `
-        <td>${rowData.name}</td>
-        <td>${rowData.typeKey.replace('料金','')}</td>
-        <td>${rowData.basePrice}</td>
-        <td><div class="chips">${chipsHtml} <button class="btn-ghost kbd editProcBtn">加工を編集</button></div></td>
-        <td class="lineTotal">${rowData.lineTotal}</td>
-        <td class="actions"><button class="btn-danger deleteBtn">削除</button></td>
-      `;
-      tableBody.appendChild(tr);
-    }
+  function renderChips(processing){
+    if(!processing || processing.length===0) return '<span class="hint">（未設定）</span>';
+    const maxShow = 3;
+    const visible = processing.slice(0, maxShow).map(p=>`<span class="chip">${p.name} +${p.amount}</span>`).join('');
+    const rest = processing.length - maxShow;
+    return rest>0 ? `${visible}<span class="chip">+${rest}</span>` : visible;
+  }
 
-    function renderChips(processing){
-      if(!processing || processing.length===0) return '<span class="hint">（未設定）</span>';
-      const maxShow = 3;
-      const visible = processing.slice(0, maxShow).map(p=>`<span class="chip">${p.name} +${p.amount}</span>`).join('');
-      const rest = processing.length - maxShow;
-      return rest>0 ? `${visible}<span class="chip">+${rest}</span>` : visible;
-    }
+  function updateTotal(){
+    let total = 0;
+    document.querySelectorAll('#tableBody tr').forEach(row => {
+      const data = JSON.parse(row.dataset.rowjson);
+      total += Number(data.lineTotal)||0;
+      row.querySelector('.lineTotal').textContent = Number(data.lineTotal||0);
+      const chipWrap = row.querySelector('.chips');
+      if(chipWrap){ chipWrap.innerHTML = `${renderChips(data.processing)} <button class=\"btn-ghost kbd editProcBtn\">加工を編集</button>`; }
+    });
+    totalSpan.textContent = total.toLocaleString();
+    saveState();
+  }
+</script>
 
-    function updateTotal(){
-      let total = 0;
-      document.querySelectorAll('#tableBody tr').forEach(row => {
-        const data = JSON.parse(row.dataset.rowjson);
-        total += Number(data.lineTotal)||0;
-        row.querySelector('.lineTotal').textContent = Number(data.lineTotal||0);
-        // チップ再描画（他から更新された場合に備える）
-        const chipWrap = row.querySelector('.chips');
-        if(chipWrap){ chipWrap.innerHTML = `${renderChips(data.processing)} <button class="btn-ghost kbd editProcBtn">加工を編集</button>`; }
-      });
-      totalSpan.textContent = total.toLocaleString();
-      saveState();
-    }
+<script>
+  // ================= イベント（追加・削除・編集） =================
+  document.getElementById("addSearchBtn").addEventListener("click", () => {
+    const name = document.getElementById("itemSearch").value;
+    const typeKey = typeSelect.value;
+    const data = buildRowData(name, typeKey);
+    if(!name || !items.find(i=>i.name===name)) { alert('該当する品目が見つかりません'); return; }
+    if(!data){ alert('この種別では金額が未設定です。'); return; }
+    addRowFromData(data);
+    updateTotal();
+  });
 
-    // =====================================================
-    // ▼ イベント（行追加・削除）
-    //   目的：ユーザー操作（追加／削除／編集）を行状態JSONに反映し、合計を再計算
-    //   フロー：
-    //     1) 追加：品名・種別の妥当性を検証 → 行JSON生成 → テーブルへ描画 → updateTotal()
-    //     2) 削除：対象行をremove → updateTotal()
-    //     3) 編集：ドロワーを開き、保存時に行JSONを差し替え → updateTotal()
-    //   注意：バリデーションNG時は alert で即時中断
-    // =====================================================
-    document.getElementById("addSearchBtn").addEventListener("click", () => {
-      const name = document.getElementById("itemSearch").value;
-      const typeKey = typeSelect.value;
-      const data = buildRowData(name, typeKey);
-      if(!name || !items.find(i=>i.name===name)) { alert('該当する品目が見つかりません'); return; }
-      if(!data){ alert('この種別では金額が未設定です。'); return; }
-      addRowFromData(data);
-      updateTotal();
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    tableBody.innerHTML = "";
+    localStorage.removeItem(STORAGE_KEY);
+    updateTotal();
+  });
+
+  tableBody.addEventListener("click", (e) => {
+    const tr = e.target.closest('tr');
+    if(!tr) return;
+    if (e.target.classList.contains("deleteBtn")) {
+      tr.remove(); updateTotal(); return;
+    }
+    if (e.target.classList.contains("editProcBtn")) {
+      openDrawerForRow(tr); return;
+    }
+  });
+
+  typeSelect.addEventListener('change', saveState);
+  const itemSearchInput = document.getElementById('itemSearch');
+  if(itemSearchInput){ itemSearchInput.addEventListener('input', saveState); itemSearchInput.addEventListener('change', saveState); }
+</script>
+
+<script>
+  // ================= 加工マスター＆適用ロジック（PROC_MASTER） =================
+  const PROC_MASTER = [
+    { code:'P_MOTH', name:'防虫加工',        calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
+    { code:'P_WR',   name:'はっ水加工',      calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
+    { code:'P_SWEAT',name:'汗すっきり加工',  calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
+    { code:'P_MOIST',name:'しっとり加工',    calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
+    { code:'P_POLY', name:'ポリジン・ウォッシュイン', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
+    { code:'P_POLY_FUTON', name:'ポリジン（ふとん）', calcType:'fixed', amount:1500, appliesTo:'none', isApplicable: (row)=> /布団/.test(row.name) },
+    { code:'P_WAFUKU_WR', name:'和服はっ水加工', calcType:'fixed', amount:3500, appliesTo:'none', isApplicable: (row)=> /きもの|留袖|振袖|訪問着|長じゅばん|ゆかた|打掛|喪服/.test(row.name) || row.typeKey==='和洗料金' },
+    { code:'P_FUR_BIG', name:'毛皮防虫（コート・ジャケット等）', calcType:'fixed', amount:3500, appliesTo:'none', isApplicable: (row)=> /コート|ジャケット/.test(row.name) },
+    { code:'P_FUR_SMALL', name:'毛皮防虫（マフラー・ショール等）', calcType:'fixed', amount:2500, appliesTo:'none', isApplicable: (row)=> /マフラー|ショール/.test(row.name) },
+    { code:'P_MITE_BLANKET', name:'防ダニ（毛布：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /毛布/.test(row.name) && row.originalPrice!=null },
+    { code:'P_MITE_FUTON', name:'防ダニ（ふとん：1500）', calcType:'fixed', amount:1500, appliesTo:'none', isApplicable: (row)=> /布団/.test(row.name) },
+    { code:'P_ANTI_MOLD', name:'防カビ（カーテンのみ：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /カーテン/.test(row.name) && row.originalPrice!=null },
+    { code:'P_FLAME', name:'防炎（カーテンのみ：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /カーテン/.test(row.name) && row.originalPrice!=null },
+    { code:'C_RINTORAKU', name:'リントラク（スカート/スラックス）', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スカート|スラックス|ズボン/.test(row.name),
+      options:[
+        { key:'skirt_pleats_3',   label:'スカート ヒダ3本まで', amount:800 },
+        { key:'skirt_pleats_4_10',label:'スカート ヒダ4〜10本', amount:1000 },
+        { key:'skirt_pleats_11_30',label:'スカート ヒダ11〜30本', amount:1500 },
+        { key:'pants',            label:'スラックス・ズボン', amount:1000 }
+      ]
+    },
+    { code:'C_SHIROSET', name:'シロセット（スラックス・ズボン）', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スラックス|ズボン/.test(row.name),
+      options:[ { key:'pants', label:'シロセット加工', amount:1000 } ]
+    }
+  ];
+
+  function computePercent(original, rate, min, max){
+    if(original==null) return {amount:0, note:'オリジナル料金が未設定のため適用不可'};
+    let val = Math.round(original * rate);
+    if (typeof min==='number' && val < min) val = min;
+    if (typeof max==='number' && val > max) val = max;
+    return {amount: val, note:`オリジナル${original}×${Math.round(rate*100)}%（下限/上限適用）`};
+  }
+</script>
+
+<script>
+  // ================= ドロワー制御 =================
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('drawerOverlay');
+  const drawerClose = document.getElementById('drawerClose');
+  const drawerCancel = document.getElementById('drawerCancel');
+  const drawerSave = document.getElementById('drawerSave');
+
+  let currentRowEl = null;
+
+  function openDrawerForRow(tr){
+    currentRowEl = tr;
+    const data = JSON.parse(tr.dataset.rowjson);
+    document.getElementById('drawerTitle').textContent = '加工の編集';
+    document.getElementById('drawerSubtitle').textContent = `${data.name}（種別：${data.typeKey.replace('料金','')}）`;
+    const baseNote = (data.originalPrice!=null)
+      ? `オリジナル料金：<strong>${data.originalPrice} 円</strong> ／ 基準金額（${data.typeKey.replace('料金','')}）：<strong>${data.basePrice} 円</strong>`
+      : `オリジナル料金：<strong>未設定</strong>（％系加工は無効） ／ 基準金額（${data.typeKey.replace('料金','')}）：<strong>${data.basePrice} 円</strong>`;
+    document.getElementById('drawerBaseInfo').innerHTML = baseNote;
+
+    renderProcessingUI(data);
+    recalcDrawerTotals();
+
+    overlay.style.display = 'block';
+    setTimeout(()=>{ drawer.classList.add('open'); }, 10);
+  }
+
+  function closeDrawer(){
+    drawer.classList.remove('open');
+    setTimeout(()=>{ overlay.style.display = 'none'; currentRowEl=null; }, 200);
+  }
+
+  overlay.addEventListener('click', closeDrawer);
+  drawerClose.addEventListener('click', closeDrawer);
+  drawerCancel.addEventListener('click', closeDrawer);
+
+  function renderProcessingUI(row){
+    const percentWrap = document.getElementById('procPercentList');
+    const fixedWrap = document.getElementById('procFixedList');
+    const condWrap = document.getElementById('procConditionalList');
+    percentWrap.innerHTML = ''; fixedWrap.innerHTML=''; condWrap.innerHTML='';
+
+    const selected = new Map(row.processing.map(p=>[p.code,p]));
+
+    PROC_MASTER.forEach(def => {
+      if(!def.isApplicable(row)) return;
+      if(def.calcType==='percent' || def.calcType==='fixed'){
+        const isChecked = selected.has(def.code);
+        const amount = isChecked ? selected.get(def.code).amount : estimateAmount(def, row).amount;
+        const note = isChecked ? (selected.get(def.code).note||'') : (estimateAmount(def,row).note||'');
+        const node = document.createElement('div');
+        node.className = 'proc-row';
+        node.innerHTML = `
+          <div>
+            <label style="display:flex; gap:8px; align-items:center;">
+              <input type="checkbox" data-proc-code="${def.code}" ${isChecked? 'checked':''} />
+              <span>${def.name}</span>
+            </label>
+            <div class="proc-meta">${note? note : ''}</div>
+          </div>
+          <div class="proc-controls">+ <span class="amount" data-amt-for="${def.code}">${amount}</span> 円</div>
+        `;
+        (def.calcType==='percent' ? percentWrap : fixedWrap).appendChild(node);
+      } else if(def.calcType==='conditional'){
+        const chosen = selected.get(def.code)?.optionKey || '';
+        const node = document.createElement('div'); node.className='proc-row';
+        const opts = def.options.map(o=>`<option value="${o.key}" ${o.key===chosen?'selected':''}>${o.label}（+${o.amount}円）</option>`).join('');
+        node.innerHTML = `
+          <div>
+            <label style="display:flex; gap:8px; align-items:center;">
+              <input type="checkbox" data-proc-code="${def.code}" ${chosen? 'checked':''} />
+              <span>${def.name}</span>
+            </label>
+            <div class="proc-meta">条件を選択してください</div>
+          </div>
+          <div class="proc-controls">
+            <select data-proc-opt="${def.code}">
+              <option value="">未選択</option>
+              ${opts}
+            </select>
+          </div>
+        `;
+        condWrap.appendChild(node);
+      }
     });
 
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      tableBody.innerHTML = "";
-      localStorage.removeItem(STORAGE_KEY);
-      updateTotal();
+    document.querySelectorAll('[data-proc-code]').forEach(el=>{
+      el.addEventListener('change', ()=>{ recalcDrawerTotals(); });
     });
-
-    tableBody.addEventListener("click", (e) => {
-      const tr = e.target.closest('tr');
-      if(!tr) return;
-      if (e.target.classList.contains("deleteBtn")) {
-        tr.remove(); updateTotal(); return;
-      }
-      if (e.target.classList.contains("editProcBtn")) {
-        openDrawerForRow(tr); return;
-      }
+    document.querySelectorAll('[data-proc-opt]').forEach(el=>{
+      el.addEventListener('change', ()=>{ const cb = el.closest('.proc-row').querySelector('[data-proc-code]'); if(el.value) cb.checked=true; recalcDrawerTotals(); });
     });
+  }
 
-    typeSelect.addEventListener('change', saveState);
-    const itemSearchInput = document.getElementById('itemSearch');
-    if(itemSearchInput){ itemSearchInput.addEventListener('input', saveState); itemSearchInput.addEventListener('change', saveState); }
+  function estimateAmount(def, row){
+    if(def.calcType==='fixed') return {amount:def.amount, note:''};
+    if(def.calcType==='percent') return computePercent(row.originalPrice, def.rate, def.min, def.max);
+    return {amount:0, note:''};
+  }
 
-    // =====================================================================
-    // ▼ 加工マスター＆適用ロジック（PROC_MASTER）
-    //   目的：加工の“計算ルール”と“表示条件”を一元管理
-    //   種別：
-    //     - percent    … オリジナル料金×率（下限400／上限2500）※originalPriceが無ければ非表示
-    //     - fixed      … 固定額
-    //     - conditional… 折り目加工などの選択肢指定（ラベルと金額を選ぶ）
-    //   表示：isApplicable(row) が true のみドロワーに表示（品名・種別に基づく）
-    //   変更：金額・適用条件の修正はここだけで完結（UI側は自動反映）
-    // =====================================================================
-    // calcType: 'percent' | 'fixed' | 'conditional'
-    // appliesTo: 'original' | 'none'
-    const PROC_MASTER = [
-      { code:'P_MOTH', name:'防虫加工',        calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
-      { code:'P_WR',   name:'はっ水加工',      calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
-      { code:'P_SWEAT',name:'汗すっきり加工',  calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
-      { code:'P_MOIST',name:'しっとり加工',    calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
-      // ポリジン（通常 50%系）
-      { code:'P_POLY', name:'ポリジン・ウォッシュイン', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> row.originalPrice!=null },
-      // ふとんのポリジンは固定 1500
-      { code:'P_POLY_FUTON', name:'ポリジン（ふとん）', calcType:'fixed', amount:1500, appliesTo:'none', isApplicable: (row)=> /布団/.test(row.name) },
-      // 和服はっ水（固定 3500）
-      { code:'P_WAFUKU_WR', name:'和服はっ水加工', calcType:'fixed', amount:3500, appliesTo:'none', isApplicable: (row)=> /きもの|留袖|振袖|訪問着|長じゅばん|ゆかた|打掛|喪服/.test(row.name) || row.typeKey==='和洗料金' },
-      // 毛皮防虫（固定：大物3500/小物2500）→ 対象品目が現行itemsに少ないため常時非表示でもよいが、UI検証のため条件は広めに
-      { code:'P_FUR_BIG', name:'毛皮防虫（コート・ジャケット等）', calcType:'fixed', amount:3500, appliesTo:'none', isApplicable: (row)=> /コート|ジャケット/.test(row.name) },
-      { code:'P_FUR_SMALL', name:'毛皮防虫（マフラー・ショール等）', calcType:'fixed', amount:2500, appliesTo:'none', isApplicable: (row)=> /マフラー|ショール/.test(row.name) },
-      // 防ダニ
-      { code:'P_MITE_BLANKET', name:'防ダニ（毛布：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /毛布/.test(row.name) && row.originalPrice!=null },
-      { code:'P_MITE_FUTON', name:'防ダニ（ふとん：1500）', calcType:'fixed', amount:1500, appliesTo:'none', isApplicable: (row)=> /布団/.test(row.name) },
-      // 座布団/じゅうたんは対象品目なしのため現状は非適用
-      // カーテン系
-      { code:'P_ANTI_MOLD', name:'防カビ（カーテンのみ：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /カーテン/.test(row.name) && row.originalPrice!=null },
-      { code:'P_FLAME', name:'防炎（カーテンのみ：50%）', calcType:'percent', rate:0.5, min:400, max:2500, appliesTo:'original', isApplicable: (row)=> /カーテン/.test(row.name) && row.originalPrice!=null },
-      // リントラク（条件選択）
-      { code:'C_RINTORAKU', name:'リントラク（スカート/スラックス）', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スカート|スラックス|ズボン/.test(row.name),
-        options:[
-          { key:'skirt_pleats_3',   label:'スカート ヒダ3本まで', amount:800 },
-          { key:'skirt_pleats_4_10',label:'スカート ヒダ4〜10本', amount:1000 },
-          { key:'skirt_pleats_11_30',label:'スカート ヒダ11〜30本', amount:1500 },
-          { key:'pants',            label:'スラックス・ズボン', amount:1000 }
-        ]
-      },
-      { code:'C_SHIROSET', name:'シロセット（スラックス・ズボン）', calcType:'conditional', appliesTo:'none', isApplicable: (row)=> /スラックス|ズボン/.test(row.name),
-        options:[ { key:'pants', label:'シロセット加工', amount:1000 } ]
-      }
-    ];
+  function gatherDrawerSelection(){
+    if(!currentRowEl) return [];
+    const data = JSON.parse(currentRowEl.dataset.rowjson);
+    const out = [];
 
-    // --- 計算ユーティリティ：％系の金額算出（下限400／上限2500を適用）
-    function computePercent(original, rate, min, max){
-      if(original==null) return {amount:0, note:'オリジナル料金が未設定のため適用不可'};
-      let val = Math.round(original * rate);
-      if (typeof min==='number' && val < min) val = min;
-      if (typeof max==='number' && val > max) val = max;
-      return {amount: val, note:`オリジナル${original}×${Math.round(rate*100)}%（下限/上限適用）`};
-    }
-
-    // =====================================================
-    // ▼ ドロワー制御
-    //   目的：行単位で加工を編集するモードを提供（右スライドの編集UI）
-    //   流れ：
-    //     openDrawerForRow → renderProcessingUI（適用可能加工だけ生成）→
-    //     gatherDrawerSelection（選択値収集）→ recalcDrawerTotals（小計試算）→ 保存
-    //   注意：保存時のみ行JSONを書き換え。キャンセル時は変更を破棄
-    // =====================================================
-    const drawer = document.getElementById('drawer');
-    const overlay = document.getElementById('drawerOverlay');
-    const drawerClose = document.getElementById('drawerClose');
-    const drawerCancel = document.getElementById('drawerCancel');
-    const drawerSave = document.getElementById('drawerSave');
-
-    let currentRowEl = null; // 編集対象行
-
-    function openDrawerForRow(tr){
-      currentRowEl = tr;
-      const data = JSON.parse(tr.dataset.rowjson);
-      document.getElementById('drawerTitle').textContent = '加工の編集';
-      document.getElementById('drawerSubtitle').textContent = `${data.name}（種別：${data.typeKey.replace('料金','')}）`;
-      const baseNote = (data.originalPrice!=null)
-        ? `オリジナル料金：<strong>${data.originalPrice} 円</strong> ／ 基準金額（${data.typeKey.replace('料金','')}）：<strong>${data.basePrice} 円</strong>`
-        : `オリジナル料金：<strong>未設定</strong>（％系加工は無効） ／ 基準金額（${data.typeKey.replace('料金','')}）：<strong>${data.basePrice} 円</strong>`;
-      document.getElementById('drawerBaseInfo').innerHTML = baseNote;
-
-      renderProcessingUI(data);
-      recalcDrawerTotals();
-
-      overlay.style.display = 'block';
-      setTimeout(()=>{ drawer.classList.add('open'); }, 10);
-    }
-
-    function closeDrawer(){
-      drawer.classList.remove('open');
-      setTimeout(()=>{ overlay.style.display = 'none'; currentRowEl=null; }, 200);
-    }
-
-    overlay.addEventListener('click', closeDrawer);
-    drawerClose.addEventListener('click', closeDrawer);
-    drawerCancel.addEventListener('click', closeDrawer);
-
-    function renderProcessingUI(row){
-      const percentWrap = document.getElementById('procPercentList');
-      const fixedWrap = document.getElementById('procFixedList');
-      const condWrap = document.getElementById('procConditionalList');
-      percentWrap.innerHTML = ''; fixedWrap.innerHTML=''; condWrap.innerHTML='';
-
-      // 現在選択済みを辞書化
-      const selected = new Map(row.processing.map(p=>[p.code,p]));
-
-      PROC_MASTER.forEach(def => {
-        if(!def.isApplicable(row)) return; // 非適用は表示しない
-        if(def.calcType==='percent' || def.calcType==='fixed'){
-          const isChecked = selected.has(def.code);
-          const amount = isChecked ? selected.get(def.code).amount : estimateAmount(def, row).amount;
-          const note = isChecked ? (selected.get(def.code).note||'') : (estimateAmount(def,row).note||'');
-          const node = document.createElement('div');
-          node.className = 'proc-row';
-          node.innerHTML = `
-            <div>
-              <label style="display:flex; gap:8px; align-items:center;">
-                <input type="checkbox" data-proc-code="${def.code}" ${isChecked? 'checked':''} />
-                <span>${def.name}</span>
-              </label>
-              <div class="proc-meta">${note? note : ''}</div>
-            </div>
-            <div class="proc-controls">+ <span class="amount" data-amt-for="${def.code}">${amount}</span> 円</div>
-          `;
-          (def.calcType==='percent' ? percentWrap : fixedWrap).appendChild(node);
-        } else if(def.calcType==='conditional'){
-          const chosen = selected.get(def.code)?.optionKey || '';
-          const amount = selected.get(def.code)?.amount || 0;
-          const node = document.createElement('div'); node.className='proc-row';
-          const opts = def.options.map(o=>`<option value="${o.key}" ${o.key===chosen?'selected':''}>${o.label}（+${o.amount}円）</option>`).join('');
-          node.innerHTML = `
-            <div>
-              <label style="display:flex; gap:8px; align-items:center;">
-                <input type="checkbox" data-proc-code="${def.code}" ${chosen? 'checked':''} />
-                <span>${def.name}</span>
-              </label>
-              <div class="proc-meta">条件を選択してください</div>
-            </div>
-            <div class="proc-controls">
-              <select data-proc-opt="${def.code}">
-                <option value="">未選択</option>
-                ${opts}
-              </select>
-            </div>
-          `;
-          condWrap.appendChild(node);
-        }
-      });
-
-      // 変更イベントを束ねてリッスン
-      document.querySelectorAll('[data-proc-code]').forEach(el=>{
-        el.addEventListener('change', ()=>{ recalcDrawerTotals(); });
-      });
-      document.querySelectorAll('[data-proc-opt]').forEach(el=>{
-        el.addEventListener('change', ()=>{ const cb = el.closest('.proc-row').querySelector('[data-proc-code]'); if(el.value) cb.checked=true; recalcDrawerTotals(); });
-      });
-    }
-
-    function estimateAmount(def, row){
-      if(def.calcType==='fixed') return {amount:def.amount, note:''};
-      if(def.calcType==='percent') return computePercent(row.originalPrice, def.rate, def.min, def.max);
-      return {amount:0, note:''};
-    }
-
-    function gatherDrawerSelection(){
-      if(!currentRowEl) return [];
-      const data = JSON.parse(currentRowEl.dataset.rowjson);
-      const out = [];
-
-      // percent & fixed
-      PROC_MASTER.forEach(def=>{
-        if(!def.isApplicable(data)) return;
-        if(def.calcType==='percent' || def.calcType==='fixed'){
-          const cb = document.querySelector(`[data-proc-code="${def.code}"]`);
-          if(cb && cb.checked){
-            const est = estimateAmount(def, data);
-            out.push({ code:def.code, name:def.name, calcType:def.calcType, amount: est.amount, note: est.note });
-          }
-        }
-      });
-      // conditional
-      PROC_MASTER.filter(d=>d.calcType==='conditional' && d.isApplicable(data)).forEach(def=>{
+    PROC_MASTER.forEach(def=>{
+      if(!def.isApplicable(data)) return;
+      if(def.calcType==='percent' || def.calcType==='fixed'){
         const cb = document.querySelector(`[data-proc-code="${def.code}"]`);
-        const sel = document.querySelector(`[data-proc-opt="${def.code}"]`);
-        if(cb && cb.checked && sel && sel.value){
-          const opt = def.options.find(o=>o.key===sel.value);
-          if(opt) out.push({ code:def.code, name:def.name, calcType:'conditional', amount: opt.amount, optionKey: opt.key, optionLabel: opt.label });
+        if(cb && cb.checked){
+          const est = estimateAmount(def, data);
+          out.push({ code:def.code, name:def.name, calcType:def.calcType, amount: est.amount, note: est.note });
         }
-      });
-      return out;
-    }
-
-    // --- ドロワー内の試算表示：選択中の加工金額合計と行小計をリアルタイム更新
-    function recalcDrawerTotals(){
-      if(!currentRowEl) return;
-      const data = JSON.parse(currentRowEl.dataset.rowjson);
-      const selected = gatherDrawerSelection();
-      const procSum = selected.reduce((s,p)=> s + (Number(p.amount)||0), 0);
-      const lineTotal = (Number(data.basePrice)||0) + procSum;
-      document.getElementById('procSubtotal').textContent = procSum;
-      document.getElementById('rowLineTotal').textContent = lineTotal;
-    }
-
-    drawerSave.addEventListener('click', ()=>{
-      if(!currentRowEl) return;
-      const selected = gatherDrawerSelection();
-      const data = JSON.parse(currentRowEl.dataset.rowjson);
-      const procSum = selected.reduce((s,p)=> s + (Number(p.amount)||0), 0);
-      data.processing = selected;
-      data.processingTotal = procSum;
-      data.lineTotal = (Number(data.basePrice)||0) + procSum;
-      currentRowEl.dataset.rowjson = JSON.stringify(data);
-      updateTotal();
-      closeDrawer();
+      }
     });
+    PROC_MASTER.filter(d=>d.calcType==='conditional' && d.isApplicable(data)).forEach(def=>{
+      const cb = document.querySelector(`[data-proc-code="${def.code}"]`);
+      const sel = document.querySelector(`[data-proc-opt="${def.code}"]`);
+      if(cb && cb.checked && sel && sel.value){
+        const opt = def.options.find(o=>o.key===sel.value);
+        if(opt) out.push({ code:def.code, name:def.name, calcType:'conditional', amount: opt.amount, optionKey: opt.key, optionLabel: opt.label });
+      }
+    });
+    return out;
+  }
 
-    // =====================================
-    // ▼ 初期化
-    //   目的：localStorage の既存データを復元し、前回状態から業務を再開できるようにする
-    //   備考：将来バージョンアップ時は schemaVersion を見て移行処理を追加
-    // =====================================
-    (function init(){
-      // 初期候補のロード
-      loadState();
-    })();
-  </script>
+  function recalcDrawerTotals(){
+    if(!currentRowEl) return;
+    const data = JSON.parse(currentRowEl.dataset.rowjson);
+    const selected = gatherDrawerSelection();
+    const procSum = selected.reduce((s,p)=> s + (Number(p.amount)||0), 0);
+    const lineTotal = (Number(data.basePrice)||0) + procSum;
+    document.getElementById('procSubtotal').textContent = procSum;
+    document.getElementById('rowLineTotal').textContent = lineTotal;
+  }
+
+  drawerSave.addEventListener('click', ()=>{
+    if(!currentRowEl) return;
+    const selected = gatherDrawerSelection();
+    const data = JSON.parse(currentRowEl.dataset.rowjson);
+    const procSum = selected.reduce((s,p)=> s + (Number(p.amount)||0), 0);
+    data.processing = selected;
+    data.processingTotal = procSum;
+    data.lineTotal = (Number(data.basePrice)||0) + procSum;
+    currentRowEl.dataset.rowjson = JSON.stringify(data);
+    updateTotal();
+    closeDrawer();
+  });
+</script>
+
+<script>
+  // ================= 初期化 =================
+  (function init(){
+    loadState();
+  })();
+</script>
 </body>
 </html>
