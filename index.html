@@ -84,33 +84,41 @@
   </style>
 </head>
 <body>
-  <h1>白洋舍 料金シミュレーター</h1>
+ <h1>白洋舍 料金シミュレーター</h1>
 
-  <div class="toolbar">
-     <div class="form-group">
-      <!-- 追加：促し文（検索ボックスの前） -->
-      <div class="search-hint" id="searchHint">
-        クリーニングしたい品物を入力し、候補から選択してから「検索から追加」を押してください。<br>
-        種別は必要に応じてプルダウンで切り替えられます（和服は「和洗料金」、布団は「布団料金」など）。
-      </div>
-      <label for="itemSearch">🔍 品名検索:</label>
-      <input id="itemSearch" type="search" list="itemSuggestions" placeholder="品名を入力して選択" />
-      <datalist id="itemSuggestions"></datalist>
-
-      <label for="typeSelect">種別:</label>
-      <select id="typeSelect">
-        <option value="オリジナル料金">オリジナル料金</option>
-        <option value="ローヤル料金">ローヤル料金</option>
-        <option value="素材別料金">素材別料金</option>
-        <option value="クリスタル料金">クリスタル料金</option>
-        <option value="和洗料金">和洗料金</option>
-        <option value="布団料金">布団料金</option>
-      </select>
-
-      <button id="addSearchBtn" class="btn-primary">検索から追加</button>
-      <button id="resetBtn" class="btn-ghost">リセット</button>
-    </div>
+<!-- 使い方アコーディオン（タイトル直下に新設） -->
+<details class="howto" style="margin: 10px 0 14px;">
+  <summary style="cursor:pointer; font-weight:700;">使い方</summary>
+  <div style="margin-top:8px; line-height:1.7;">
+    <ol style="margin:0; padding-left:1.2em;">
+      <li>「品名検索」に品目名を入力し、候補から選択します。</li>
+      <li>必要に応じて「種別」を切り替えます（例：和服＝「和洗料金」、布団＝「布団料金」）。</li>
+      <li>「検索から追加」を押して表に行を追加します。各行の「加工を編集」で加工を設定できます。</li>
+    </ol>
   </div>
+</details>
+
+<div class="toolbar">
+  <div class="form-group">
+    <!-- ※ 促し文（search-hint）を削除 -->
+    <label for="itemSearch">🔍 品名検索:</label>
+    <input id="itemSearch" type="search" list="itemSuggestions" placeholder="品名を入力して選択" />
+    <datalist id="itemSuggestions"></datalist>
+
+    <label for="typeSelect">種別:</label>
+    <select id="typeSelect">
+      <option value="オリジナル料金">オリジナル料金</option>
+      <option value="ローヤル料金">ローヤル料金</option>
+      <option value="素材別料金">素材別料金</option>
+      <option value="クリスタル料金">クリスタル料金</option>
+      <option value="和洗料金">和洗料金</option>
+      <option value="布団料金">布団料金</option>
+    </select>
+
+    <button id="addSearchBtn" class="btn-primary">検索から追加</button>
+    <button id="resetBtn" class="btn-ghost">リセット</button>
+  </div>
+</div>
 
   
 
