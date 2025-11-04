@@ -141,10 +141,11 @@
 
   <p id="summary">合計金額(税抜): <span id="total">0</span> 円</p>
 
-  <!-- ▼▼ 変更：アコーディオン→プルダウン案内に刷新 ▼▼ -->
-  <div style="margin-top: 24px;">
-    <h2>各種加工のご案内</h2>
-    <div class="guide-box">
+  <!-- ▼▼ 各種加工のご案内をアコーディオン化（中にプルダウン） ▼▼ -->
+<div style="margin-top: 24px;">
+  <details class="howto" id="processingGuideAccordion">
+    <summary style="cursor:pointer; font-weight:700;">各種加工のご案内</summary>
+    <div class="guide-box" style="margin-top:10px;">
       <div class="guide-row">
         <label for="processingInfoSelect">加工を選択:</label>
         <select id="processingInfoSelect">
@@ -153,7 +154,8 @@
       </div>
       <pre id="processingInfoText" class="guide-desc"></pre>
     </div>
-  </div>
+  </details>
+</div>
 
   <!-- ドロワー -->
   <div class="drawer-overlay" id="drawerOverlay"></div>
