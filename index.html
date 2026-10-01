@@ -85,8 +85,6 @@
 </head>
 <body>
  <h1>白洋舍 料金シミュレーター</h1>
- <p class="hint">2026年9月改定料金対応（確認日：2026年10月1日）／表示・計算はすべて税抜です。</p>
- <p class="hint">料金表「2609OK」に基づく概算です。素材・形状・加工の可否は受付でご確認ください。</p>
  <p id="priceUpdateNotice" class="hint" role="status" hidden></p>
 
 <!-- 使い方アコーディオン（タイトル直下に新設） -->
@@ -132,7 +130,7 @@
         <tr>
           <th>品目</th>
           <th>種別</th>
-          <th>金額（税抜・基準）</th>
+          <th>金額（基準）</th>
           <th>加工</th>
           <th>小計</th>
           <th>操作</th>
@@ -477,12 +475,10 @@
           if(row) addRowFromData(row);
           else skipped.push(saved && typeof saved.name === 'string' ? saved.name : '不明な品目');
         });
-        if(state.priceVersion !== PRICE_VERSION || skipped.length){
+        if(skipped.length){
           const notice = document.getElementById('priceUpdateNotice');
           notice.hidden = false;
-          notice.textContent = '保存済みの計算を2026年9月の料金で再計算しました。'
-            + (skipped.length ? ' 現行料金表にない種別は合計から除外しました：' + skipped.join('、') + '。仕上げ種別を確認して追加してください。' : '')
-            + ' 改定前の入力はこのブラウザー内にバックアップしています。';
+          notice.textContent = '仕上げ種別を確認して追加してください：' + skipped.join('、') + '（合計から除外）';
         }
         updateTotal();
       }
